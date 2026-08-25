@@ -37,6 +37,8 @@ container_scanning:
     name: aquasec/trivy:latest
     entrypoint: [""]
   script:
+    - mkdir -p ~/.m2
+    - ln -s $(pwd)/.m2/repository ~/.m2/repository || true
     # Falha o pipeline explicitamente apenas em vulnerabilidades CRITICAL
     - trivy fs --exit-code 1 --severity CRITICAL .
 

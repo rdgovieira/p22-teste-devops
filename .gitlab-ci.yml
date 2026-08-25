@@ -62,32 +62,38 @@ tf_plan:
     name: hashicorp/terraform:light
     entrypoint: [""]
   script:
+    - cd terraform
     - terraform init
-    - terraform workspace select hml || terraform workspace new hml
+    - terraform workspace select -or-create hml
     - terraform plan -out=tfplan
   artifacts:
     paths:
-      - tfplan
+      - terraform/tfplan
 
 tf_apply_hml:
   stage: infrastructure
+  needs: ["tf_plan"]
   image:
     name: hashicorp/terraform:light
     entrypoint: [""]
   script:
+    - cd terraform
     - terraform init
-    - terraform workspace select hml || terraform workspace new hml
+    - terraform workspace select -or-create hml
     - terraform apply -auto-approve tfplan
 
 tf_apply_prd:
   stage: infrastructure
+  needs: ["tf_plan"]
   image:
     name: hashicorp/terraform:light
     entrypoint: [""]
   script:
+    - cd terraform
     - terraform init
-    - terraform workspace select prd || terraform workspace new prd
-    - terraform apply -auto-approve tfplan
+    - terraform workspace select -or-create prd
+    - terraform plan -out=tfplan_prd
+    - terraform apply -auto-approve tfplan_prd
   when: manual
 
 deploy_hml:

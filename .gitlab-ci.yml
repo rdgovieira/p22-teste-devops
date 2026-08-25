@@ -59,7 +59,7 @@ docker_push:
 tf_plan:
   stage: infrastructure
   image:
-    name: hashicorp/terraform:light
+    name: hashicorp/terraform:latest
     entrypoint: [""]
   script:
     - cd terraform
@@ -74,7 +74,7 @@ tf_apply_hml:
   stage: infrastructure
   needs: ["tf_plan"]
   image:
-    name: hashicorp/terraform:light
+    name: hashicorp/terraform:latest
     entrypoint: [""]
   script:
     - cd terraform
@@ -86,7 +86,7 @@ tf_apply_prd:
   stage: infrastructure
   needs: ["tf_plan"]
   image:
-    name: hashicorp/terraform:light
+    name: hashicorp/terraform:latest
     entrypoint: [""]
   script:
     - cd terraform

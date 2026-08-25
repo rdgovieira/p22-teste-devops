@@ -33,7 +33,9 @@ sast:
 
 container_scanning:
   stage: security
-  image: aquasec/trivy:latest
+  image: 
+    name: aquasec/trivy:latest
+    entrypoint: [""]
   script:
     # Falha o pipeline explicitamente apenas em vulnerabilidades CRITICAL
     - trivy fs --exit-code 1 --severity CRITICAL .
@@ -51,7 +53,9 @@ docker_push:
 
 tf_plan:
   stage: infrastructure
-  image: hashicorp/terraform:light
+  image:
+    name: hashicorp/terraform:light
+    entrypoint: [""]
   script:
     - terraform init
     - terraform workspace select hml || terraform workspace new hml
@@ -62,7 +66,9 @@ tf_plan:
 
 tf_apply_prd:
   stage: infrastructure
-  image: hashicorp/terraform:light
+  image:
+    name: hashicorp/terraform:light
+    entrypoint: [""]
   script:
     - terraform init
     - terraform workspace select prd || terraform workspace new prd

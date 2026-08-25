@@ -1,19 +1,83 @@
-# You can override the included template(s) by including variable overrides
-# SAST customization: https://docs.gitlab.com/user/application_security/sast/#available-cicd-variables
-# Secret Detection customization: https://docs.gitlab.com/user/application_security/secret_detection/pipeline/configure/
-# Dependency Scanning customization: https://docs.gitlab.com/user/application_security/dependency_scanning/dependency_scanning_sbom/#customizing-analyzer-behavior
-# Container Scanning customization: https://docs.gitlab.com/user/application_security/container_scanning/#customizing-analyzer-behavior
-# Note that environment variables can be set in several places
-# See https://docs.gitlab.com/ci/variables/#cicd-variable-precedence
 stages:
-- test
-- secret-detection
-sast:
-  stage: test
-include:
-- template: Security/SAST.gitlab-ci.yml
-- template: Security/Secret-Detection.gitlab-ci.yml
+  - build-test
+  - security
+  - build-push
+  - deploy
+
 variables:
-  SECRET_DETECTION_ENABLED: 'true'
-secret_detection:
-  stage: secret-detection
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+  IMAGE_TAG: $CI_COMMIT_SHA
+
+cache:
+  paths:
+    - .m2/repository/
+
+build_and_test:
+  stage: build-test
+  image: maven:3.9.4-eclipse-temurin-17
+  script:
+    - mvn clean test
+    - mvn package
+  artifacts:
+    reports:
+      junit: target/surefire-reports/TEST-*.xml
+    paths:
+      - target/*.jar
+
+sast:
+  stage: security
+  include:
+    - template: Security/SAST.gitlab-ci.yml
+
+container_scanning:
+  stage: security
+  image: aquasec/trivy:latest
+  script:
+    # Falha o pipeline explicitamente apenas em vulnerabilidades CRITICAL
+    - trivy fs --exit-code 1 --severity CRITICAL .
+
+docker_push:
+  stage: build-push
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  before_script:
+    - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+  script:
+    - docker build -t $ECR_REGISTRY/my-app:$IMAGE_TAG .
+    - docker push $ECR_REGISTRY/my-app:$IMAGE_TAG
+
+tf_plan:
+  stage: infrastructure
+  image: hashicorp/terraform:light
+  script:
+    - terraform init
+    - terraform workspace select hml || terraform workspace new hml
+    - terraform plan -out=tfplan
+  artifacts:
+    paths:
+      - tfplan
+
+tf_apply_prd:
+  stage: infrastructure
+  image: hashicorp/terraform:light
+  script:
+    - terraform init
+    - terraform workspace select prd || terraform workspace new prd
+    - terraform apply -auto-approve tfplan
+  when: manual
+
+deploy_hml:
+  stage: deploy
+  environment: hml
+  script:
+    - aws ecs update-service --cluster cluster-hml --service app-service-hml --force-new-deployment
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+deploy_prd:
+  stage: deploy
+  environment: prd
+  script:
+    - aws ecs update-service --cluster cluster-prd --service app-service-prd --force-new-deployment
+  when: manual

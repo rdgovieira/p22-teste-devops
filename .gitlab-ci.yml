@@ -2,7 +2,11 @@ stages:
   - build-test
   - security
   - build-push
+  - infrastructure
   - deploy
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
 
 variables:
   MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
@@ -26,8 +30,6 @@ build_and_test:
 
 sast:
   stage: security
-  include:
-    - template: Security/SAST.gitlab-ci.yml
 
 container_scanning:
   stage: security

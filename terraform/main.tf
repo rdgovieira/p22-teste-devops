@@ -124,7 +124,7 @@ resource "aws_lb_listener" "http" {
 # --- ECS Security Group ---
 resource "aws_security_group" "ecs_sg" {
   name        = "ecs-sg-${terraform.workspace}"
-  description = "Allow inbound traffic to ECS only from ALB"
+  description = "Allow inbound traffic to ECS"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {

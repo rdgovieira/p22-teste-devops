@@ -49,10 +49,12 @@ docker_push:
     - docker:24.0.5-dind
   before_script:
     - apk add --no-cache aws-cli
+    - export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+    - export ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
     - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
   script:
-    - docker build -t $ECR_REGISTRY/my-app:$IMAGE_TAG .
-    - docker push $ECR_REGISTRY/my-app:$IMAGE_TAG
+    - docker build -t $ECR_REGISTRY/p22-devops-ecs-fargate-repo-hml:$IMAGE_TAG .
+    - docker push $ECR_REGISTRY/p22-devops-ecs-fargate-repo-hml:$IMAGE_TAG
 
 tf_plan:
   stage: infrastructure
@@ -66,6 +68,16 @@ tf_plan:
   artifacts:
     paths:
       - tfplan
+
+tf_apply_hml:
+  stage: infrastructure
+  image:
+    name: hashicorp/terraform:light
+    entrypoint: [""]
+  script:
+    - terraform init
+    - terraform workspace select hml || terraform workspace new hml
+    - terraform apply -auto-approve tfplan
 
 tf_apply_prd:
   stage: infrastructure

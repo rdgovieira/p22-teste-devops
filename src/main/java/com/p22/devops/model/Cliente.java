@@ -1,8 +1,16 @@
 package com.p22.devops.model;
 
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+
 public class Cliente {
     private Long id;
+
+    @NotBlank(message = "O nome do cliente é obrigatório")
     private String nome;
+
+    @NotBlank(message = "O email do cliente é obrigatório")
+    @Email(message = "O email deve possuir um formato válido")
     private String email;
 
     public Cliente() {}

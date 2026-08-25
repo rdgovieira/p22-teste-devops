@@ -4,20 +4,22 @@ import com.p22.devops.model.Produto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicLong;
 
 @RestController
 @RequestMapping("/api/produtos")
 @Tag(name = "Produtos", description = "API de gerenciamento de produtos")
 public class ProdutoController {
-    private List<Produto> produtos = new ArrayList<>();
-    private long nextId = 2L;
+    private final List<Produto> produtos = new CopyOnWriteArrayList<>();
+    private final AtomicLong nextId = new AtomicLong(2L);
 
     @Value("${app.feature-flag:false}")
     private boolean featureFlag;
@@ -37,15 +39,12 @@ public class ProdutoController {
     }
 
     @PostMapping
-    @Operation(summary = "Cria um novo produto", description = "Adiciona um novo produto ao sistema")
-    public ResponseEntity<Produto> criar(@RequestBody Produto produto) {
-        if (produto.getNome() == null || produto.getNome().trim().isEmpty()) {
+    @Operation(summary = "Cria um novo produto", description = "Adiciona um novo produto ao sistema com validação via Bean Validation")
+    public ResponseEntity<Produto> criar(@Valid @RequestBody Produto produto) {
+        if (produto.getNome() == null || produto.getNome().trim().isEmpty() || produto.getPreco() == null || produto.getPreco() < 0) {
             return ResponseEntity.badRequest().build();
         }
-        if (produto.getPreco() == null || produto.getPreco() < 0) {
-            return ResponseEntity.badRequest().build();
-        }
-        produto.setId(nextId++);
+        produto.setId(nextId.getAndIncrement());
         produtos.add(produto);
         return ResponseEntity.ok(produto);
     }
@@ -64,16 +63,13 @@ public class ProdutoController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Atualiza um produto", description = "Atualiza os dados de um produto existente")
-    public ResponseEntity<Produto> atualizar(@Parameter(description = "ID do produto") @PathVariable Long id, @RequestBody Produto produtoAtualizado) {
+    @Operation(summary = "Atualiza um produto", description = "Atualiza os dados de um produto existente com validação")
+    public ResponseEntity<Produto> atualizar(@Parameter(description = "ID do produto") @PathVariable Long id, @Valid @RequestBody Produto produtoAtualizado) {
+        if (produtoAtualizado.getNome() == null || produtoAtualizado.getNome().trim().isEmpty() || produtoAtualizado.getPreco() == null || produtoAtualizado.getPreco() < 0) {
+            return ResponseEntity.badRequest().build();
+        }
         for (Produto produto : produtos) {
             if (produto.getId().equals(id)) {
-                if (produtoAtualizado.getNome() == null || produtoAtualizado.getNome().trim().isEmpty()) {
-                    return ResponseEntity.badRequest().build();
-                }
-                if (produtoAtualizado.getPreco() == null || produtoAtualizado.getPreco() < 0) {
-                    return ResponseEntity.badRequest().build();
-                }
                 produto.setNome(produtoAtualizado.getNome());
                 produto.setPreco(produtoAtualizado.getPreco());
                 return ResponseEntity.ok(produto);

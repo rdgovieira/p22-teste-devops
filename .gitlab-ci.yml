@@ -1,8 +1,8 @@
 stages:
   - build-test
   - security
-  - infrastructure
   - build-push
+  - infrastructure
   - deploy
 
 include:
@@ -31,7 +31,7 @@ build_and_test:
 sast:
   stage: security
 
-container_scanning:
+dependency_scanning:
   stage: security
   image: 
     name: aquasec/trivy:latest
@@ -39,7 +39,7 @@ container_scanning:
   script:
     - mkdir -p ~/.m2
     - ln -s $(pwd)/.m2/repository ~/.m2/repository || true
-    # Falha o pipeline explicitamente apenas em vulnerabilidades CRITICAL
+    # Falha o pipeline explicitamente apenas em vulnerabilidades CRITICAL nas dependencias
     - trivy fs --exit-code 1 --severity CRITICAL .
 
 docker_push:
@@ -53,9 +53,18 @@ docker_push:
     - export ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
     - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
   script:
-    - docker build -t $ECR_REGISTRY/p22-devops-ecs-fargate-repo-hml:$IMAGE_TAG -t $ECR_REGISTRY/p22-devops-ecs-fargate-repo-hml:latest .
+    # 1. Build da imagem com a tag do commit
+    - docker build -t my-app:$IMAGE_TAG .
+    # 2. Container Scanning com Trivy sobre a imagem Docker construida (Quality gate CRITICAL)
+    - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --exit-code 1 --severity CRITICAL my-app:$IMAGE_TAG
+    # 3. Push para o repositorio de HML
+    - aws ecr describe-repositories --repository-names p22-devops-ecs-fargate-repo-hml --region $AWS_REGION || aws ecr create-repository --repository-name p22-devops-ecs-fargate-repo-hml --region $AWS_REGION --image-tag-mutability IMMUTABLE || true
+    - docker tag my-app:$IMAGE_TAG $ECR_REGISTRY/p22-devops-ecs-fargate-repo-hml:$IMAGE_TAG
     - docker push $ECR_REGISTRY/p22-devops-ecs-fargate-repo-hml:$IMAGE_TAG
-    - docker push $ECR_REGISTRY/p22-devops-ecs-fargate-repo-hml:latest
+    # 4. Push para o repositorio de PRD
+    - aws ecr describe-repositories --repository-names p22-devops-ecs-fargate-repo-prd --region $AWS_REGION || aws ecr create-repository --repository-name p22-devops-ecs-fargate-repo-prd --region $AWS_REGION --image-tag-mutability IMMUTABLE || true
+    - docker tag my-app:$IMAGE_TAG $ECR_REGISTRY/p22-devops-ecs-fargate-repo-prd:$IMAGE_TAG
+    - docker push $ECR_REGISTRY/p22-devops-ecs-fargate-repo-prd:$IMAGE_TAG
 
 tf_plan:
   stage: infrastructure
@@ -66,7 +75,7 @@ tf_plan:
     - cd terraform
     - terraform init
     - terraform workspace select -or-create hml
-    - terraform plan -out=tfplan
+    - terraform plan -var="image_tag=$IMAGE_TAG" -out=tfplan
   artifacts:
     paths:
       - terraform/tfplan
@@ -85,7 +94,7 @@ tf_apply_hml:
 
 tf_apply_prd:
   stage: infrastructure
-  needs: ["tf_plan"]
+  needs: ["docker_push"]
   image:
     name: hashicorp/terraform:latest
     entrypoint: [""]
@@ -93,13 +102,14 @@ tf_apply_prd:
     - cd terraform
     - terraform init
     - terraform workspace select -or-create prd
-    - terraform plan -out=tfplan_prd
+    - terraform plan -var="image_tag=$IMAGE_TAG" -out=tfplan_prd
     - terraform apply -auto-approve tfplan_prd
   when: manual
 
 deploy_hml:
   stage: deploy
   environment: hml
+  needs: ["tf_apply_hml"]
   image:
     name: amazon/aws-cli:latest
     entrypoint: [""]
@@ -111,6 +121,7 @@ deploy_hml:
 deploy_prd:
   stage: deploy
   environment: prd
+  needs: ["tf_apply_prd"]
   image:
     name: amazon/aws-cli:latest
     entrypoint: [""]

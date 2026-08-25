@@ -16,7 +16,6 @@ class ClienteControllerTest {
 
     @BeforeEach
     void setUp() {
-        // Inicializa o controller antes de cada teste para garantir um estado limpo
         controller = new ClienteController();
     }
 
@@ -32,8 +31,23 @@ class ClienteControllerTest {
     }
 
     @Test
+    void testCriarClienteComNomeInvalido() {
+        Cliente novoCliente = new Cliente(null, "   ", "valido@email.com");
+        ResponseEntity<Cliente> response = controller.criar(novoCliente);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+    }
+
+    @Test
+    void testCriarClienteComEmailInvalido() {
+        Cliente novoCliente = new Cliente(null, "Carlos", "email-invalido-sem-arroba");
+        ResponseEntity<Cliente> response = controller.criar(novoCliente);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+    }
+
+    @Test
     void testBuscarPorIdEncontrado() {
-        // O ID 1 já é inserido no construtor do controller
         ResponseEntity<Cliente> response = controller.buscarPorId(1L);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -43,7 +57,6 @@ class ClienteControllerTest {
 
     @Test
     void testBuscarPorIdNaoEncontrado() {
-        // Caso de borda: buscando um ID que não existe
         ResponseEntity<Cliente> response = controller.buscarPorId(99L);
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
@@ -61,18 +74,23 @@ class ClienteControllerTest {
     }
 
     @Test
+    void testAtualizarClienteComEmailInvalido() {
+        Cliente clienteAtualizado = new Cliente(null, "Rodrigo", "email-invalido");
+        ResponseEntity<Cliente> response = controller.atualizar(1L, clienteAtualizado);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+    }
+
+    @Test
     void testDeletarClienteEncontrado() {
         ResponseEntity<Void> response = controller.deletar(1L);
         
         assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
-        
-        // Garante que foi realmente removido
         assertEquals(HttpStatus.NOT_FOUND, controller.buscarPorId(1L).getStatusCode());
     }
 
     @Test
     void testDeletarClienteNaoEncontrado() {
-        // Caso de erro: tentando deletar um ID inexistente
         ResponseEntity<Void> response = controller.deletar(99L);
         
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());

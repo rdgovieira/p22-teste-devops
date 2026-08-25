@@ -1,8 +1,17 @@
 package com.p22.devops.model;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+
 public class Produto {
     private Long id;
+
+    @NotBlank(message = "O nome do produto é obrigatório")
     private String nome;
+
+    @NotNull(message = "O preço do produto é obrigatório")
+    @PositiveOrZero(message = "O preço do produto deve ser maior ou igual a zero")
     private Double preco;
 
     public Produto() {}

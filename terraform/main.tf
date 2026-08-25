@@ -4,11 +4,17 @@ provider "aws" {
 
 resource "aws_ecr_repository" "app_repo" {
   name                 = "p22-devops-ecs-fargate-repo-${terraform.workspace}"
-  image_tag_mutability = "MUTABLE"
+  image_tag_mutability = "IMMUTABLE"
 }
 
 resource "aws_ecs_cluster" "main" {
   name = "cluster-${terraform.workspace}"
+}
+
+# --- CloudWatch Log Group ---
+resource "aws_cloudwatch_log_group" "ecs_log_group" {
+  name              = "/ecs/app-task-${terraform.workspace}"
+  retention_in_days = 7
 }
 
 # --- IAM Role for ECS Task Execution ---
@@ -48,6 +54,14 @@ resource "aws_ecs_task_definition" "app_task" {
       containerPort = 8080
       hostPort      = 8080
     }]
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = aws_cloudwatch_log_group.ecs_log_group.name
+        "awslogs-region"        = var.aws_region
+        "awslogs-stream-prefix" = "ecs"
+      }
+    }
   }])
 }
 
@@ -63,15 +77,50 @@ data "aws_subnets" "default" {
   }
 }
 
+# --- TLS Certificate for HTTPS (Self-signed imported to ACM) ---
+resource "tls_private_key" "alb_key" {
+  algorithm = "RSA"
+  rsa_bits  = 2048
+}
+
+resource "tls_self_signed_cert" "alb_cert" {
+  private_key_pem = tls_private_key.alb_key.private_key_pem
+
+  subject {
+    common_name  = "app.${terraform.workspace}.local"
+    organization = "DevOps Assessment"
+  }
+
+  validity_period_hours = 8760
+
+  allowed_uses = [
+    "key_encipherment",
+    "digital_signature",
+    "server_auth",
+  ]
+}
+
+resource "aws_acm_certificate" "alb_cert" {
+  private_key      = tls_private_key.alb_key.private_key_pem
+  certificate_body = tls_self_signed_cert.alb_cert.cert_pem
+}
+
 # --- ALB Security Group ---
 resource "aws_security_group" "alb_sg" {
   name        = "alb-sg-${terraform.workspace}"
-  description = "Allow inbound traffic to ALB on port 80"
+  description = "Allow inbound traffic to ALB on ports 80 and 443"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
     from_port   = 80
     to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -110,10 +159,24 @@ resource "aws_lb_target_group" "app_tg" {
   }
 }
 
+# --- ALB Listeners (HTTP and HTTPS) ---
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main.arn
   port              = "80"
   protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app_tg.arn
+  }
+}
+
+resource "aws_lb_listener" "https" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = aws_acm_certificate.alb_cert.arn
 
   default_action {
     type             = "forward"
@@ -162,11 +225,16 @@ resource "aws_ecs_service" "app_service" {
     container_port   = 8080
   }
 
-  depends_on = [aws_lb_listener.http]
+  depends_on = [aws_lb_listener.http, aws_lb_listener.https]
 }
 
 # --- Outputs ---
-output "alb_url" {
-  description = "URL do Application Load Balancer para acessar a aplicacao"
+output "alb_http_url" {
+  description = "URL HTTP do Application Load Balancer"
   value       = "http://${aws_lb.main.dns_name}"
+}
+
+output "alb_https_url" {
+  description = "URL HTTPS do Application Load Balancer"
+  value       = "https://${aws_lb.main.dns_name}"
 }

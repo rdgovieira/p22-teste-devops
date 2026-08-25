@@ -65,6 +65,40 @@ class ProdutoControllerTest {
     }
 
     @Test
+    void testCriarProdutoComNomeInvalido() {
+        Produto novoProduto = new Produto(null, "", 120.50);
+        ResponseEntity<Produto> response = controller.criar(novoProduto);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+    }
+
+    @Test
+    void testCriarProdutoComPrecoInvalido() {
+        Produto novoProduto = new Produto(null, "Dominó", -10.0);
+        ResponseEntity<Produto> response = controller.criar(novoProduto);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+    }
+
+    @Test
+    void testAtualizarProdutoComNomeInvalido() {
+        Produto produtoAtualizado = new Produto(null, "", 50.0);
+        ResponseEntity<Produto> response = controller.atualizar(1L, produtoAtualizado);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+    }
+
+    @Test
+    void testGetConfig() {
+        // Testa o endpoint de config (deve retornar os valores padrão caso não injetados pelo Spring via Reflection,
+        // mas como não usamos Reflection direto aqui e sim 'new ProdutoController()', os campos boolean serão false
+        // e o String será null. Em um teste com @SpringBootTest seria o valor padrão, mas aqui testamos o comportamento do método)
+        ResponseEntity<String> response = controller.getConfig();
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertTrue(response.getBody().contains("Feature Flag: false"));
+    }
+
+    @Test
     void testDeletarProdutoEncontrado() {
         ResponseEntity<Void> response = controller.deletar(1L);
         

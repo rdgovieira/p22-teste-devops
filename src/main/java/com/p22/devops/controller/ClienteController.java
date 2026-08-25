@@ -8,8 +8,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 @RestController
 @RequestMapping("/api/clientes")
+@Tag(name = "Clientes", description = "API de gerenciamento de clientes")
 public class ClienteController {
     private List<Cliente> clientes = new ArrayList<>();
     private long nextId = 2L;
@@ -20,6 +25,7 @@ public class ClienteController {
     }
 
     @PostMapping
+    @Operation(summary = "Cria um novo cliente", description = "Adiciona um novo cliente ao sistema")
     public ResponseEntity<Cliente> criar(@RequestBody Cliente cliente) {
         cliente.setId(nextId++);
         clientes.add(cliente);
@@ -27,18 +33,21 @@ public class ClienteController {
     }
 
     @GetMapping
+    @Operation(summary = "Lista todos os clientes", description = "Retorna uma lista com todos os clientes cadastrados")
     public ResponseEntity<List<Cliente>> listarTodos() {
         return ResponseEntity.ok(clientes);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Cliente> buscarPorId(@PathVariable Long id) {
+    @Operation(summary = "Busca cliente por ID", description = "Retorna um cliente específico através de seu ID")
+    public ResponseEntity<Cliente> buscarPorId(@Parameter(description = "ID do cliente") @PathVariable Long id) {
         Optional<Cliente> cliente = clientes.stream().filter(c -> c.getId().equals(id)).findFirst();
         return cliente.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Cliente> atualizar(@PathVariable Long id, @RequestBody Cliente clienteAtualizado) {
+    @Operation(summary = "Atualiza um cliente", description = "Atualiza os dados de um cliente existente")
+    public ResponseEntity<Cliente> atualizar(@Parameter(description = "ID do cliente") @PathVariable Long id, @RequestBody Cliente clienteAtualizado) {
         for (Cliente cliente : clientes) {
             if (cliente.getId().equals(id)) {
                 cliente.setNome(clienteAtualizado.getNome());
@@ -50,7 +59,8 @@ public class ClienteController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletar(@PathVariable Long id) {
+    @Operation(summary = "Deleta um cliente", description = "Remove um cliente através de seu ID")
+    public ResponseEntity<Void> deletar(@Parameter(description = "ID do cliente") @PathVariable Long id) {
         boolean removido = clientes.removeIf(c -> c.getId().equals(id));
         if (removido) {
             return ResponseEntity.noContent().build();

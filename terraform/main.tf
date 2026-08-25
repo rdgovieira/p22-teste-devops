@@ -108,7 +108,7 @@ resource "aws_acm_certificate" "alb_cert" {
 # --- ALB Security Group ---
 resource "aws_security_group" "alb_sg" {
   name        = "alb-sg-${terraform.workspace}"
-  description = "Allow inbound traffic to ALB on ports 80 and 443"
+  description = "Allow inbound traffic to ALB on port 80"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {

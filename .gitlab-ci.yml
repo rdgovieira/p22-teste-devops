@@ -51,6 +51,7 @@ tf_plan:
     - cd terraform
     - terraform init
     - terraform workspace select -or-create hml
+    - if [ -n "$LOCK_ID" ]; then terraform force-unlock -force $LOCK_ID || true; fi
     - terraform plan -var="image_tag=$IMAGE_TAG" -out=tfplan
   artifacts:
     paths:
@@ -103,6 +104,30 @@ tf_destroy_prd:
     - terraform init
     - terraform workspace select -or-create prd
     - terraform destroy -auto-approve -var="image_tag=$IMAGE_TAG"
+  when: manual
+
+tf_unlock_hml:
+  stage: infrastructure
+  image:
+    name: hashicorp/terraform:latest
+    entrypoint: [""]
+  script:
+    - cd terraform
+    - terraform init
+    - terraform workspace select -or-create hml
+    - terraform force-unlock -force ${LOCK_ID:-d334a881-9c5e-ba47-c30e-eed43c4c6f62}
+  when: manual
+
+tf_unlock_prd:
+  stage: infrastructure
+  image:
+    name: hashicorp/terraform:latest
+    entrypoint: [""]
+  script:
+    - cd terraform
+    - terraform init
+    - terraform workspace select -or-create prd
+    - terraform force-unlock -force $LOCK_ID
   when: manual
 
 docker_push:

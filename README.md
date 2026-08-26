@@ -60,6 +60,7 @@ A arquitetura foi desenhada para ser serverless, escalável e segura, cobrindo t
 * **Infraestrutura como Código (IaC - Terraform):**
   * O estado é armazenado de forma remota no **Amazon S3** com locking nativo (`use_lockfile = true`).
   * Separação de ambientes (`hml` e `prd`) utilizando `terraform.workspace`.
+  * **Teardown / Destruição Controlada:** Foram incluídos jobs manuais (`tf_destroy_hml` e `tf_destroy_prd`) no estágio `infrastructure` para permitir a limpeza completa e destruição sob demanda dos recursos da conta AWS, evitando custos residuais após os testes.
 
 ---
 

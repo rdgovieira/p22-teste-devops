@@ -5,6 +5,7 @@ provider "aws" {
 resource "aws_ecr_repository" "app_repo" {
   name                 = "p22-devops-ecs-fargate-repo-${terraform.workspace}"
   image_tag_mutability = "IMMUTABLE"
+  force_delete         = true
 }
 
 resource "aws_ecs_cluster" "main" {

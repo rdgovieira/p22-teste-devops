@@ -1,0 +1,76 @@
+name: Terraform Operations (Destroy & Unlock)
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Operação do Terraform a ser executada'
+        required: true
+        type: choice
+        options:
+          - destroy
+          - unlock
+      environment:
+        description: 'Ambiente alvo (hml ou prd)'
+        required: true
+        type: choice
+        options:
+          - hml
+          - prd
+      lock_id:
+        description: 'Lock ID do S3 (necessário apenas para a operação unlock)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-2' }}
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  terraform-operation:
+    name: Terraform ${{ github.event.inputs.operation }} (${{ github.event.inputs.environment }})
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Execute Unlock
+        if: ${{ github.event.inputs.operation == 'unlock' }}
+        working-directory: terraform
+        run: |
+          terraform init
+          terraform workspace select -or-create ${{ github.event.inputs.environment }}
+          LOCK_ID="${{ github.event.inputs.lock_id }}"
+          if [ -z "$LOCK_ID" ]; then
+            LOCK_ID="${{ secrets.LOCK_ID }}"
+          fi
+          if [ -z "$LOCK_ID" ]; then
+            echo "Erro: Nenhum Lock ID foi fornecido via input ou secret."
+            exit 1
+          fi
+          echo "Destravando state com Lock ID: $LOCK_ID"
+          terraform force-unlock -force "$LOCK_ID"
+
+      - name: Execute Destroy
+        if: ${{ github.event.inputs.operation == 'destroy' }}
+        working-directory: terraform
+        run: |
+          REPO_NAME="p22-devops-ecs-fargate-repo-${{ github.event.inputs.environment }}"
+          echo "Forçando exclusão do repositório ECR: $REPO_NAME"
+          aws ecr delete-repository --repository-name "$REPO_NAME" --force --region ${{ env.AWS_REGION }} || true
+          terraform init
+          terraform workspace select -or-create ${{ github.event.inputs.environment }}
+          terraform destroy -auto-approve -var="image_tag=${{ env.IMAGE_TAG }}"

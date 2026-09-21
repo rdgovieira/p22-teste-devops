@@ -27,14 +27,16 @@ A arquitetura foi desenhada para ser serverless, escalável e segura, cobrindo t
 
 **Diagrama simplificado:**
 ```text
-[GitLab CI/CD] 
+[GitLab CI/CD / GitHub Actions] 
    ├──> (Build & Tests) -> JUnit Reports XML
-   ├──> (Security) -> GitLab SAST & Trivy Dependency Scanning
-   ├──> (Docker Build & Trivy Container Scan) -> Amazon ECR (Immutable $CI_COMMIT_SHA)
+   ├──> (Security) -> SAST & Trivy Dependency Scanning
    ├──> (IaC - Terraform) -> ALB (HTTP/HTTPS + ACM), CloudWatch Logs, ECS Fargate
+   ├──> (Docker Build & Trivy Container Scan) -> Amazon ECR (Immutable $CI_COMMIT_SHA / $GITHUB_SHA)
    └──> (Deploy ECS) 
           └──> Application Load Balancer (80/443) -> AWS ECS Fargate (hml / prd)
 ```
+
+> 💡 **Suporte a Multi-CI/CD:** O repositório conta tanto com o [.gitlab-ci.yml](file:///home/rodrigo/workspace/p22-teste-devops/.gitlab-ci.yml) para o GitLab CI quanto com os workflows nativos do **GitHub Actions** em [.github/workflows/pipeline.yml](file:///home/rodrigo/workspace/p22-teste-devops/.github/workflows/pipeline.yml) (esteira principal) e [.github/workflows/terraform-ops.yml](file:///home/rodrigo/workspace/p22-teste-devops/.github/workflows/terraform-ops.yml) (operações manuais de destroy e unlock via `workflow_dispatch`).
 
 ---
 

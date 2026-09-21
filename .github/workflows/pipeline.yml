@@ -66,14 +66,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
+
       - name: Run Trivy Dependency / Filesystem Scan (CRITICAL only)
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          ignore-unfixed: false
-          severity: 'CRITICAL'
-          exit-code: '1'
-          trivyignores: '.trivyignore'
+        run: |
+          trivy fs --exit-code 1 --severity CRITICAL .
 
   infrastructure-hml:
     name: Infrastructure (Terraform HML)
@@ -130,13 +129,13 @@ jobs:
         run: |
           docker build -t my-app:${{ env.IMAGE_TAG }} .
 
+      - name: Install Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
+
       - name: Trivy Container Image Scan (CRITICAL only)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'my-app:${{ env.IMAGE_TAG }}'
-          severity: 'CRITICAL'
-          exit-code: '1'
-          trivyignores: '.trivyignore'
+        run: |
+          trivy image --exit-code 1 --severity CRITICAL my-app:${{ env.IMAGE_TAG }}
 
       - name: Push Image to ECR (HML & PRD)
         env:

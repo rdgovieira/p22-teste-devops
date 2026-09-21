@@ -1,0 +1,4 @@
+# Temporary ignore for Tomcat CVEs whose fixed version (10.1.58) is not yet available on Maven Central
+CVE-2026-65182
+CVE-2026-65905
+CVE-2026-68525

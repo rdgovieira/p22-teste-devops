@@ -73,6 +73,7 @@ jobs:
           ignore-unfixed: false
           severity: 'CRITICAL'
           exit-code: '1'
+          trivyignores: '.trivyignore'
 
   infrastructure-hml:
     name: Infrastructure (Terraform HML)
@@ -135,6 +136,7 @@ jobs:
           image-ref: 'my-app:${{ env.IMAGE_TAG }}'
           severity: 'CRITICAL'
           exit-code: '1'
+          trivyignores: '.trivyignore'
 
       - name: Push Image to ECR (HML & PRD)
         env:

@@ -36,7 +36,7 @@ A arquitetura foi desenhada para ser serverless, escalável e segura, cobrindo t
           └──> Application Load Balancer (80/443) -> AWS ECS Fargate (hml / prd)
 ```
 
-> 💡 **Suporte a Multi-CI/CD:** O repositório conta tanto com o [.gitlab-ci.yml](file:///home/rodrigo/workspace/p22-teste-devops/.gitlab-ci.yml) para o GitLab CI quanto com os workflows nativos do **GitHub Actions** em [.github/workflows/pipeline.yml](file:///home/rodrigo/workspace/p22-teste-devops/.github/workflows/pipeline.yml) (esteira principal) e [.github/workflows/terraform-ops.yml](file:///home/rodrigo/workspace/p22-teste-devops/.github/workflows/terraform-ops.yml) (operações manuais de destroy e unlock via `workflow_dispatch`).
+> 💡 **Suporte a Multi-CI/CD:** O repositório conta tanto com o [.gitlab-ci.yml](file:///home/rodrigo/workspace/p22-teste-devops/.gitlab-ci.yml) para o GitLab CI quanto com os workflows nativos do **GitHub Actions** em [.github/workflows/pipeline.yml](file:///home/rodrigo/workspace/p22-teste-devops/.github/workflows/pipeline.yml) (esteira principal com infraestrutura e deploy de Produção separados e protegidos por aprovação manual via GitHub Environments) e [.github/workflows/terraform-ops.yml](file:///home/rodrigo/workspace/p22-teste-devops/.github/workflows/terraform-ops.yml) (operações manuais de destroy e unlock via `workflow_dispatch`).
 
 ---
 

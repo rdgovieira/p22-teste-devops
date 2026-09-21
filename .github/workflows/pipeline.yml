@@ -72,13 +72,24 @@ jobs:
 
       - name: Run Trivy Dependency / Filesystem Scan (CRITICAL only)
         run: |
-          python3 -c "
-          import subprocess
-          out = subprocess.run(['trivy', 'fs', '--ignorefile', '.trivyignore.yaml', '--scanners', 'vuln', '--severity', 'CRITICAL', '.'], capture_output=True, text=True)
-          msg = (out.stdout + '\n' + out.stderr).replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
-          print(f'::warning title=TrivyDebug::{msg}')
-          "
+          trivy fs --ignorefile .trivyignore.yaml --scanners vuln --severity CRITICAL . > trivy_report.txt 2>&1 || true
+          cat trivy_report.txt
           trivy fs --ignorefile .trivyignore.yaml --scanners vuln --exit-code 1 --severity CRITICAL .
+
+      - name: Publish Trivy Summary
+        if: always()
+        run: |
+          echo "### Trivy Scan Report" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat trivy_report.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Trivy Report Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-report
+          path: trivy_report.txt
 
   infrastructure-hml:
     name: Infrastructure (Terraform HML)

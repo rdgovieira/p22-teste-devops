@@ -6,6 +6,21 @@ on:
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Operação a ser executada'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+          - destroy-hml
+          - destroy-prd
+          - destroy-both
+      lock_id:
+        description: 'Lock ID do S3 (opcional, para force-unlock)'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -20,6 +35,7 @@ jobs:
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.operation == 'deploy'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -246,3 +262,67 @@ jobs:
       - name: Update ECS Service (PRD)
         run: |
           aws ecs update-service --cluster cluster-prd --service app-service-prd --force-new-deployment
+
+  destroy-hml:
+    name: Destroy Infrastructure (HML)
+    runs-on: ubuntu-latest
+    environment: hml
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.operation == 'destroy-hml' || github.event.inputs.operation == 'destroy-both') }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Destroy HML Infrastructure
+        working-directory: terraform
+        run: |
+          REPO_NAME="p22-devops-ecs-fargate-repo-hml"
+          echo "Forçando exclusão do repositório ECR: $REPO_NAME"
+          aws ecr delete-repository --repository-name "$REPO_NAME" --force --region ${{ env.AWS_REGION }} || true
+          terraform init
+          terraform workspace select -or-create hml
+          LOCK_ID="${{ github.event.inputs.lock_id }}"
+          if [ -z "$LOCK_ID" ]; then LOCK_ID="${{ secrets.LOCK_ID }}"; fi
+          if [ -n "$LOCK_ID" ]; then terraform force-unlock -force "$LOCK_ID" || true; fi
+          terraform destroy -auto-approve -var="image_tag=${{ env.IMAGE_TAG }}"
+
+  destroy-prd:
+    name: Destroy Infrastructure (PRD)
+    runs-on: ubuntu-latest
+    environment: prd
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.operation == 'destroy-prd' || github.event.inputs.operation == 'destroy-both') }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Destroy PRD Infrastructure
+        working-directory: terraform
+        run: |
+          REPO_NAME="p22-devops-ecs-fargate-repo-prd"
+          echo "Forçando exclusão do repositório ECR: $REPO_NAME"
+          aws ecr delete-repository --repository-name "$REPO_NAME" --force --region ${{ env.AWS_REGION }} || true
+          terraform init
+          terraform workspace select -or-create prd
+          LOCK_ID="${{ github.event.inputs.lock_id }}"
+          if [ -z "$LOCK_ID" ]; then LOCK_ID="${{ secrets.LOCK_ID }}"; fi
+          if [ -n "$LOCK_ID" ]; then terraform force-unlock -force "$LOCK_ID" || true; fi
+          terraform destroy -auto-approve -var="image_tag=${{ env.IMAGE_TAG }}"

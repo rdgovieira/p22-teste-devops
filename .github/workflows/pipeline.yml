@@ -72,6 +72,12 @@ jobs:
 
       - name: Run Trivy Dependency / Filesystem Scan (CRITICAL only)
         run: |
+          python3 -c "
+          import subprocess
+          out = subprocess.run(['trivy', 'fs', '--ignorefile', '.trivyignore.yaml', '--scanners', 'vuln', '--severity', 'CRITICAL', '.'], capture_output=True, text=True)
+          msg = (out.stdout + '\n' + out.stderr).replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print(f'::warning title=TrivyDebug::{msg}')
+          "
           trivy fs --ignorefile .trivyignore.yaml --scanners vuln --exit-code 1 --severity CRITICAL .
 
   infrastructure-hml:

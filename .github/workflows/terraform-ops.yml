@@ -11,12 +11,13 @@ on:
           - destroy
           - unlock
       environment:
-        description: 'Ambiente alvo (hml ou prd)'
+        description: 'Ambiente alvo (hml, prd ou both)'
         required: true
         type: choice
         options:
           - hml
           - prd
+          - both
       lock_id:
         description: 'Lock ID do S3 (necessário apenas para a operação unlock)'
         required: false
@@ -68,9 +69,19 @@ jobs:
         if: ${{ github.event.inputs.operation == 'destroy' }}
         working-directory: terraform
         run: |
-          REPO_NAME="p22-devops-ecs-fargate-repo-${{ github.event.inputs.environment }}"
-          echo "Forçando exclusão do repositório ECR: $REPO_NAME"
-          aws ecr delete-repository --repository-name "$REPO_NAME" --force --region ${{ env.AWS_REGION }} || true
-          terraform init
-          terraform workspace select -or-create ${{ github.event.inputs.environment }}
-          terraform destroy -auto-approve -var="image_tag=${{ env.IMAGE_TAG }}"
+          TARGETS="${{ github.event.inputs.environment }}"
+          if [ "$TARGETS" = "both" ]; then
+            TARGETS="hml prd"
+          fi
+          for ENV in $TARGETS; do
+            echo "--- Destruindo infraestrutura do ambiente: $ENV ---"
+            REPO_NAME="p22-devops-ecs-fargate-repo-$ENV"
+            echo "Forçando exclusão do repositório ECR: $REPO_NAME"
+            aws ecr delete-repository --repository-name "$REPO_NAME" --force --region ${{ env.AWS_REGION }} || true
+            terraform init
+            terraform workspace select -or-create "$ENV"
+            LOCK_ID="${{ github.event.inputs.lock_id }}"
+            if [ -z "$LOCK_ID" ]; then LOCK_ID="${{ secrets.LOCK_ID }}"; fi
+            if [ -n "$LOCK_ID" ]; then terraform force-unlock -force "$LOCK_ID" || true; fi
+            terraform destroy -auto-approve -var="image_tag=${{ env.IMAGE_TAG }}"
+          done
